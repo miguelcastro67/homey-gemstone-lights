@@ -1,0 +1,16 @@
+{
+  "name": "com.miguelcastro67.gemstonelights",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@tsconfig/node16": "^16.1.9",
+    "@types/homey": "npm:homey-apps-sdk-v3-types@^0.3.12",
+    "@types/node": "^26.6.3",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "amazon-cognito-identity-js": "^6.3.20"
+  }
+}

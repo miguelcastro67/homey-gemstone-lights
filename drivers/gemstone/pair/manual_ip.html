@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemstone Hub2 Setup</title>
+  </head>
+
+  <body>
+
+    <fieldset class="homey-form-fieldset">
+      <legend class="homey-form-legend">Gemstone Hub2</legend>
+
+      <div class="homey-form-group">
+        <label class="homey-form-label" for="host">
+          IP Address
+        </label>
+
+        <input
+          class="homey-form-input"
+          id="host"
+          type="text"
+          placeholder="192.168.1.233"
+          autocomplete="off"
+        />
+      </div>
+    </fieldset>
+
+    <button
+      id="connect"
+      class="homey-button-primary-full"
+      type="button"
+    >
+      Connect
+    </button>
+ 
+    <script type="text/javascript">
+      (function () {
+        const connectButton = document.getElementById('connect');
+        const hostInput = document.getElementById('host');
+
+        connectButton.addEventListener('click', async function () {
+          const host = hostInput.value.trim();
+
+          if (!host) {
+            Homey.alert(
+              'Please enter the IP address of your Gemstone Hub2.',
+            );
+            return;
+          }
+
+          connectButton.disabled = true;
+
+          try {
+            const device = await Homey.emit('validate_host', { host });
+
+            await Homey.createDevice(device);
+
+            Homey.done();
+          } catch (error) {
+            connectButton.disabled = false;
+
+            Homey.alert(
+              error && error.message
+                ? error.message
+                : String(error),
+            );
+          }
+        });
+
+        Homey.ready();
+      })();
+    </script>
+
+  </body>
+</html>

@@ -1,0 +1,33 @@
+{
+  "name": {
+    "en": "Gemstone Hub2"
+  },
+  "class": "light",
+  "capabilities": [
+    "onoff",
+    "dim"
+  ],
+  "platforms": [
+    "local"
+  ],
+  "connectivity": [
+    "lan"
+  ],
+  "settings": [
+    {
+      "id": "host",
+      "type": "text",
+      "label": {
+        "en": "IP Address"
+      },
+      "hint": {
+        "en": "IP address of the Gemstone Hub2 controller."
+      }
+    }
+  ],
+  "pair": [
+    {
+      "id": "manual_ip"
+    }
+  ]
+}
