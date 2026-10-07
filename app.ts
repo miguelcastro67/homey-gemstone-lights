@@ -12,8 +12,8 @@ module.exports = class GemstoneLightsApp extends Homey.App {
   async onInit(): Promise<void> {
     this.log('Gemstone Lights app has been initialized');
 
-    const username = process.env.GEMSTONE_USERNAME;
-    const password = process.env.GEMSTONE_PASSWORD;
+    let username = process.env.GEMSTONE_USERNAME;
+    let password = process.env.GEMSTONE_PASSWORD;
 
     if (!username || !password) {
       this.log(
