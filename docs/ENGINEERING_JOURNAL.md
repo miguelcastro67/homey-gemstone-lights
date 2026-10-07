@@ -2,111 +2,91 @@
 
 ## Through 2026-10-06
 
-## Foundation
+## Session progress
 
-Established a native Homey Pro app for two Gemstone Hub2 controllers.
-Verified local Hub2 settings/current-playback reads and local
-power/brightness writes. Added manual-IP pairing, `onoff`, `dim`, and
-10-second polling. Verified independent control of House Front and House
-Side.
+Expanded the project from raw cloud API archaeology into typed production cloud models/client methods and the first working catalog/cache layer.
 
-Hub2 ICMP ping is unreliable. Local HTTP/API success, not ping, must
-determine connectivity. House Front once lost local HTTP while
-cloud/mobile control remained functional; toggling Allow Local Commands
-restored it.
+### Local playback discovery/fix
 
-## Cloud authentication
+Captured direct solid-color local state as:
 
-Installed `amazon-cognito-identity-js` and successfully authenticated to
-Gemstone Cognito via SRP. Confirmed login username is the account email,
-not the six-digit Gemstone number. PowerShell environment variables do
-not propagate into `homey app run --remote`; temporary hardcoding was
-used only for diagnostics.
-
-## Homegroup / Devices / Group
-
-Retrieved `Miguel’s Homegroup` and both devices:
-
-``` text
-h2-1094-t5k4 → House Front → 192.168.1.233
-h2-1075-2q9f → House Side  → 192.168.1.118
+``` json
+{
+  "onState": true,
+  "color": 255
+}
 ```
 
-Confirmed **Whole House** is a real API Device Group containing both.
+This resolved the earlier unknown. `CurrentlyPlaying.pattern` is now optional, `color` is optional, and `refreshState()` only reads Pattern brightness when Pattern data exists. This fixed the prior solid-color `state.pattern.brightness` exception.
 
-## Zones
+One later 10-second poll returned a local HTTP `500 Internal Server Error`; the polling loop caught it and later cycles recovered. This supports the planned transient-failure policy but does not replace explicit timeout/failure-threshold work.
 
-Retrieved House Front Zones: - House Front:
-`12af45b9-e6b1-4947-aaf9-f7db770bb331` - Right Side:
-`95f7c9b9-52e0-4610-8ec0-245b61356b6e`
+### Typed production cloud client/models
 
-Zone `lights` encoding remains unresolved.
+Validated and implemented typed methods for Homegroups, Devices, Zones, Designs, Pattern Folders and Patterns. Verified list endpoints use a `data` envelope and production methods unwrap it.
 
-## Designs
+Live payload findings included:
 
-Retrieved `My Design 1`, `test`, and `test 1`. Proved Designs can
-contain both `zonePatterns[]` and `staticColors[]`. `My Design 1` links
-Right Side to `Aston Martin`. `test 1` links House Front to
-`Cursed Cauldron` and also contains static colors.
+- Device LAN address is `device.hub.localIp`.
+- Folder `hidden` may be omitted.
+- Pattern records contain outer cloud metadata plus `patternData`.
+- Designs may contain Zone/Pattern assignments, static colors, or both.
 
-`Cursed Cauldron` demonstrated animation-specific parameters for
-`pyramid_chase`.
+Removed the idea of a standalone `getDeviceGroups()` cloud call because no dedicated endpoint had actually been observed. Device Group relationships come from Homegroup/Device data.
 
-## Pattern folders / Patterns
+### TestHarness cleanup
 
-`/folders/list` returned Pattern folders with `folderId`,
-`referenceFolderId`, Gemstone-managed flag and presentation metadata.
-Exact ID relationship remains unproven.
+Converted `TestHarness.ts` into a read-only diagnostic harness with compact summaries, typed methods, disabled write experiments, and no temporary early `return`.
 
-`/folders/pattern/list?folderId=...` returned full Pattern records. Live
-examples included `Dark lab`, `Blue land`, `Fire and Ice`.
+### Catalog/cache foundation
 
-## Animations
+Added:
 
-User clarified the Gemstone domain rule: Animations are a single
-Gemstone-defined, non-user-editable list. Patterns select an animation;
-users do not create animation styles. Live data has shown `motionless`,
-`multipulse`, `pyramid_chase`, `chase`, `marquee`.
+``` text
+src/models/GemstoneCatalogModels.ts
+src/managers/GemstoneCatalogManager.ts
+```
 
-A diagnostic `/animations/list` probe returned 403/API-Gateway
-authorization-format error. This does not establish that such a route
-exists.
+`GemstoneCatalogManager.load()` traverses Homegroups → Devices → Zones/Designs plus Pattern Folders → Patterns, then caches the completed catalog. Cached accessors were added for Devices/Zones/Designs and Folders/Patterns.
 
-## Colors
+First complete traversal succeeded:
 
-Colors are numeric RGBW values used in Pattern palettes, Design static
-colors, and direct playback. No separate saved color catalog is
-established.
+``` text
+homegroups: 1
+devices: 2
+zones: 2
+designs: 4
+folders: 31
+patterns: 9052
+```
 
-Cloud direct-color playback on House Front returned `200 Successful`, a
-transaction ID, and physically changed the lights: end-to-end control
-confirmed.
-
-A subsequent TestHarness local `getCurrentlyPlaying()` appeared to wait.
-The same local endpoint later responded normally in a browser. Because
-the lights had already been restored to Pumpkin Patch before the browser
-request, the test does not establish how direct color appears in
-`currentlyPlaying`. Investigate the Node/local fetch wait separately.
+This is the first verified full-account catalog snapshot. The 9,052 Pattern count strongly supports Folder-oriented Flow selection/caching rather than repeated live API calls or a naive permanent flat list.
 
 ## Checkpoint
 
 ``` text
-Local Hub2 API       ✓
-Power / brightness   ✓
-Independent Hub2s    ✓
-Cloud authentication ✓
-Homegroups           ✓
-Devices              ✓
-Device Groups        ✓
-Zones                ✓
-Designs              ✓
-Pattern folders      ✓
-Patterns             ✓
-Animation concept    ✓
-Color representation ✓
-Cloud direct color   ✓
+Local Hub2 API                    ✓
+Power / brightness                ✓
+Independent Hub2s                 ✓
+Direct-color local state shape    ✓
+Solid-color polling crash fixed   ✓
+Cloud authentication              ✓
+Typed Homegroups                  ✓
+Typed Devices                     ✓
+Typed Zones                       ✓
+Typed Designs                     ✓
+Typed Pattern folders             ✓
+Typed Patterns                    ✓
+Cloud models tightened            ✓
+Read-only TestHarness             ✓
+Catalog model                     ✓
+Catalog manager / cache           ✓
+Full 9,052-Pattern traversal      ✓
+Cached Device/Zone/Design access  ✓
+Cached Folder/Pattern access      ✓
+Device Group normalization        NEXT
 ```
 
-Next phase: stop raw API archaeology and convert the verified structures
-into typed production models/client methods, caching, FlowManager, and
-user-facing Homey behavior.
+## Next session
+
+Normalize Device Groups inside `GemstoneCatalogManager` from Homegroup/Device relationship data. Target: **Whole House** containing House Front and House Side, without inventing a separate cloud endpoint. After that: catalog refresh/invalidation behavior, lookup/index decisions, then FlowManager/dynamic Flow argument work.

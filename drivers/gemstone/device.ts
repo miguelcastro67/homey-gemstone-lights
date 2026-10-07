@@ -72,10 +72,12 @@ module.exports = class GemstoneDevice extends Homey.Device {
       state.onState,
     );
 
-    await this.setCapabilityValue(
-      'dim',
-      state.pattern.brightness / 255,
-    );
+    if (state.pattern) {
+      await this.setCapabilityValue(
+        'dim',
+        state.pattern.brightness / 255,
+      );
+    }
   }
 
   async onDeleted(): Promise<void> {

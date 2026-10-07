@@ -41,7 +41,8 @@ export interface GemstonePattern {
 
 export interface CurrentlyPlaying {
   onState: boolean;
-  pattern: GemstonePattern;
+  pattern?: GemstonePattern;
+  color?: number;
 }
 
 export interface GemstoneShadow<T> {
