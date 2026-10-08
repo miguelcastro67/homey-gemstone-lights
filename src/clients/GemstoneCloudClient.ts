@@ -73,6 +73,10 @@ export class GemstoneCloudClient implements IGemstoneCloudClient {
       .getJwtToken();
   }
 
+    public async probeEndpoint(path: string): Promise<unknown> {
+      return this.request<unknown>(path);
+    }
+
   private async request<T>(path: string): Promise<T> {
 
     if (!this.accessToken) {

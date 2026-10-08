@@ -20,8 +20,15 @@ export interface GemstoneCatalogFolder {
   patterns: GemstoneCloudPattern[];
 }
 
+export interface GemstoneCatalogDeviceGroup {
+  id: string;
+  name: string;
+  deviceIds: string[];
+}
+
 export interface GemstoneCatalog {
   homegroups: GemstoneHomegroup[];
   devices: GemstoneCatalogDevice[];
+  deviceGroups: GemstoneCatalogDeviceGroup[];
   folders: GemstoneCatalogFolder[];
 }

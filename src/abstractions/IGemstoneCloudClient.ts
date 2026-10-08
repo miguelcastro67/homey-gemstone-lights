@@ -19,6 +19,8 @@ export interface IGemstoneCloudClient {
     password: string,
   ): Promise<void>;
 
+  probeEndpoint(path: string): Promise<unknown>;
+  
   /**
    * Retrieve the Homegroups available to the authenticated account.
    */

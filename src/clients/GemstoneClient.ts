@@ -6,12 +6,42 @@ import {
 
 import { IGemstoneClient } from '../abstractions/IGemstoneClient';
 
+const REQUEST_TIMEOUT_MS = 5000;
+
 export class GemstoneClient implements IGemstoneClient {
 
   private readonly baseUrl: string;
 
   constructor(host: string) {
     this.baseUrl = `http://${host}`;
+  }
+
+  private async fetchWithTimeout(url: string, options?: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      return await fetch(
+        url,
+        {
+          ...options,
+          signal: controller.signal,
+        },
+      );
+    }
+    catch (error) {
+      if (controller.signal.aborted) {
+        throw new Error(
+          `Gemstone request timed out after ${REQUEST_TIMEOUT_MS} ms`,
+        );
+      }
+
+      throw error;
+    } 
+    finally {
+      clearTimeout(timeout);
+    }
   }
 
   public async getHubSettings(): Promise<HubSettings> {
@@ -31,7 +61,7 @@ export class GemstoneClient implements IGemstoneClient {
   }
 
   private async getReportedState<T>(path: string): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`);
+    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`);
 
     if (!response.ok) {
       throw new Error(
@@ -51,8 +81,7 @@ export class GemstoneClient implements IGemstoneClient {
   }
 
   public async setPower(on: boolean): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/device-control/play`,
+    const response = await this.fetchWithTimeout(`${this.baseUrl}/device-control/play`,
       {
         method: 'POST',
         headers: {
@@ -81,7 +110,7 @@ export class GemstoneClient implements IGemstoneClient {
   public async setBrightness(brightness: number): Promise<void> {
     const value = Math.max(0, Math.min(255, Math.round(brightness)));
     const current = await this.getCurrentlyPlaying();
-    const response = await fetch(
+    const response = await this.fetchWithTimeout(
       `${this.baseUrl}/device-control/play`,
       {
         method: 'POST',
