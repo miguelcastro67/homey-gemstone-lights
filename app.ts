@@ -23,7 +23,6 @@ module.exports = class GemstoneLightsApp extends Homey.App {
     let username = process.env.GEMSTONE_USERNAME;
     let password = process.env.GEMSTONE_PASSWORD;
 
-
     if (!username || !password) {
       this.log(
         'Gemstone cloud initialization skipped: credentials not provided.',
@@ -48,6 +47,28 @@ module.exports = class GemstoneLightsApp extends Homey.App {
     );
 
     await this.catalogManager.load();
+
+    /*
+    console.log('---- Gemstone Cloud Endpoint Probe ----');
+
+    try {
+      const result = await this.cloudClient.probeEndpoint(
+        '/folders/downloads/list',
+      );
+
+      console.log(
+        'Probe /folders/downloads/list SUCCESS:',
+        JSON.stringify(result, null, 2),
+      );
+    } catch (error) {
+      console.log(
+        'Probe /folders/downloads/list FAILED:',
+        error,
+      );
+    }
+
+    console.log('---- Gemstone Cloud Endpoint Probe Complete ----');
+    */
 
     this.flowManager = new FlowManager(
       this,

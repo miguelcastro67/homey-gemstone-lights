@@ -12,6 +12,10 @@ export class TestHarness {
       const catalog = catalogManager.getCatalog();
 
       if (!catalog) {
+        throw new Error('Gemstone catalog is not loaded');
+      }
+      
+      if (!catalog) {
         throw new Error(
           'Gemstone catalog is not loaded',
         );

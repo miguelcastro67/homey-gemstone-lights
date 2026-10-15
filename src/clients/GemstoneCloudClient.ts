@@ -120,6 +120,12 @@ export class GemstoneCloudClient implements IGemstoneCloudClient {
 
     const response = await this.request<GemstoneApiResponse<GemstoneCloudDevice[]>>(`/homegroup/devices?homegroupId=${encodeURIComponent(homegroupId)}`);
 
+    /*
+    console.log('---- RAW GEMSTONE DEVICES RESPONSE ----');
+    console.log(JSON.stringify(response, null, 2));
+    console.log('---- END RAW GEMSTONE DEVICES RESPONSE ----');
+    */
+
     return response.data;
   }
 

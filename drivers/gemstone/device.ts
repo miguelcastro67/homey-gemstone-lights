@@ -9,6 +9,10 @@ module.exports = class GemstoneDevice extends Homey.Device {
   private client!: GemstoneClient;
   private pollInterval?: NodeJS.Timeout;
 
+  private consecutivePollFailures = 0;
+
+  private static readonly MAX_POLL_FAILURES = 3;
+
   /**
    * onInit is called when the device is initialized.
    */
@@ -47,18 +51,89 @@ module.exports = class GemstoneDevice extends Homey.Device {
       },
     );
 
-    await this.refreshState();
+    try {
+      await this.refreshState();
+
+      this.consecutivePollFailures = 0;
+
+      if (!this.getAvailable()) {
+        await this.setAvailable();
+
+        this.log(
+          'Gemstone Hub2 connection restored during initialization',
+        );
+      }
+    } catch (error) {
+      this.error(
+        'Initial Gemstone Hub2 state refresh failed:',
+        error,
+      );
+
+      this.consecutivePollFailures = GemstoneDevice.MAX_POLL_FAILURES;
+
+      if (this.getAvailable()) {
+        await this.setUnavailable(
+          'Gemstone Hub2 is not responding',
+        );
+
+        this.log(
+          'Gemstone Hub2 marked unavailable during initialization',
+        );
+      }
+    }
 
     this.log(`Gemstone Hub2 at ${host} initialized`);
 
     this.pollInterval = this.homey.setInterval(async () => {
-        try {
-          await this.refreshState();
-        } catch (error) {
-          this.error('Failed to refresh Gemstone Hub2 state:', error);
+      try {
+        await this.refreshState();
+
+        this.consecutivePollFailures = 0;
+
+        if (!this.getAvailable()) {
+          await this.setAvailable();
+
+          this.log(
+            'Gemstone Hub2 connection restored',
+          );
         }
-      }, 10_000,
-    );
+      }
+      catch (error) {
+        this.consecutivePollFailures = Math.min(
+          this.consecutivePollFailures + 1,
+          GemstoneDevice.MAX_POLL_FAILURES,
+        );
+
+        if (this.consecutivePollFailures >= GemstoneDevice.MAX_POLL_FAILURES) {
+          if (this.getAvailable()) {
+            this.error(
+              `Failed to refresh Gemstone Hub2 state `
+              + `(${this.consecutivePollFailures}/`
+              + `${GemstoneDevice.MAX_POLL_FAILURES}):`,
+              error,
+            );
+
+            await this.setUnavailable(
+              'Gemstone Hub2 is not responding',
+            );
+
+            this.log(
+              'Gemstone Hub2 marked unavailable',
+            );
+          }
+           else {
+            this.log('Gemstone Hub2 is not responding; retrying');
+          }
+        } else {
+          this.error(
+            `Failed to refresh Gemstone Hub2 state `
+            + `(${this.consecutivePollFailures}/`
+            + `${GemstoneDevice.MAX_POLL_FAILURES}):`,
+            error,
+          );
+        }
+      }
+    }, 60_000);
   }
 
   /**
@@ -66,6 +141,8 @@ module.exports = class GemstoneDevice extends Homey.Device {
    */
   private async refreshState(): Promise<void> {
     const state = await this.client.getCurrentlyPlaying();
+
+    //this.log('RAW CURRENTLY PLAYING:', JSON.stringify(state, null, 2));
 
     await this.setCapabilityValue(
       'onoff',

@@ -61,7 +61,8 @@ export class GemstoneClient implements IGemstoneClient {
   }
 
   private async getReportedState<T>(path: string): Promise<T> {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`);
+    //const response = await this.fetchWithTimeout(`${this.baseUrl}${path}`);
+    const response = await fetch(`${this.baseUrl}${path}`);
 
     if (!response.ok) {
       throw new Error(
@@ -81,7 +82,8 @@ export class GemstoneClient implements IGemstoneClient {
   }
 
   public async setPower(on: boolean): Promise<void> {
-    const response = await this.fetchWithTimeout(`${this.baseUrl}/device-control/play`,
+    //const response = await this.fetchWithTimeout(`${this.baseUrl}/device-control/play`,
+    const response = await fetch(`${this.baseUrl}/device-control/play`,
       {
         method: 'POST',
         headers: {
@@ -110,7 +112,8 @@ export class GemstoneClient implements IGemstoneClient {
   public async setBrightness(brightness: number): Promise<void> {
     const value = Math.max(0, Math.min(255, Math.round(brightness)));
     const current = await this.getCurrentlyPlaying();
-    const response = await this.fetchWithTimeout(
+    //const response = await this.fetchWithTimeout(
+    const response = await fetch(
       `${this.baseUrl}/device-control/play`,
       {
         method: 'POST',

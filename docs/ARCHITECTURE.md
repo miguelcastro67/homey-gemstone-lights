@@ -1,18 +1,21 @@
 # Gemstone Lights Homey App --- Architecture
 
-**Updated:** 2026-10-06 (end-of-session)
+**Updated:** 2026-10-14
 
 ## Principles
 
-- **Local-first runtime control.**
-- **Cloud for metadata/catalog** not available locally.
-- Do not duplicate Gemstone configuration in Homey.
-- Keep local protocol models separate from cloud/catalog models.
-- Prefer stable Gemstone IDs over IP identity when practical.
-- Do not use ICMP ping as Hub2 health.
-- Cache cloud metadata so Flow argument lookup does not require repeated cloud traversal.
-- Preserve Gemstone's Folder → Pattern hierarchy; the live catalog currently contains 9,052 Patterns.
-- Do not invent cloud endpoints. Device Groups are normalized from relationships actually returned by Homegroups/Devices.
+-   **Local-first runtime control.**
+-   **Cloud for account/catalog metadata.**
+-   Gemstone remains the editor for Zones, Patterns, Designs and
+    physical setup.
+-   Keep local protocol models separate from cloud/catalog models.
+-   Prefer stable Gemstone IDs over IP identity where practical.
+-   Do not use ICMP ping as Hub2 health.
+-   Cache cloud metadata; Flow argument resolution should not repeatedly
+    traverse the cloud.
+-   Do not invent endpoints or semantics that have not been observed.
+-   Preserve Folder → Pattern relationships while recognizing that the
+    Pattern-list endpoint currently returns a global Pattern set.
 
 ## High-level design
 
@@ -27,9 +30,9 @@ GemstoneCloudClient
 GemstoneCatalogManager
   typed catalog + cache
           │
-          ├────────► future FlowManager
+          ├────────► FlowManager
           │
-Drivers / Devices
+Homey Drivers / Devices
           │
 GemstoneClient
           │ local HTTP/LAN
@@ -48,24 +51,96 @@ src/
 ├── clients/
 │   ├── GemstoneClient.ts
 │   └── GemstoneCloudClient.ts
-├── discovery/GemstoneDiscoveryProvider.ts
-├── managers/GemstoneCatalogManager.ts
+├── discovery/
+├── managers/
+│   ├── GemstoneCatalogManager.ts
+│   └── FlowManager.ts
 ├── models/
 │   ├── GemstoneModels.ts
 │   ├── GemstoneCloudModels.ts
 │   └── GemstoneCatalogModels.ts
-└── utils/TestHarness.ts
+└── utils/
+    └── TestHarness.ts
 
-src/managers/FlowManager.ts       # planned
+drivers/gemstone/
+├── driver.compose.json
+├── driver.ts
+├── device.ts
+└── pair/manual_ip.html
 ```
 
 ## Local layer
 
-Verified endpoints: `GET /device-state/hub-settings`, `GET /device-state/currently-playing`, `POST /device-control/play`.
+Verified endpoints:
 
-Direct solid-color state is `{ onState: true, color: 255 }` with no Pattern. Therefore local `CurrentlyPlaying.pattern` and `color` are optional alternatives. `refreshState()` derives `dim` only when Pattern data exists.
+``` text
+GET  /device-state/hub-settings
+GET  /device-state/currently-playing
+POST /device-control/play
+```
 
-A transient local HTTP 500 during polling was caught without terminating the loop; later polls recovered. Explicit request timeouts, failure thresholds, availability transitions, and log-noise policy remain production work.
+`GemstoneClient` owns LAN communication.
+
+### Playback state
+
+Local `currentlyPlaying` supports at least two observed forms:
+
+``` text
+Pattern:
+{
+  onState,
+  pattern: { ... }
+}
+
+Direct color:
+{
+  onState,
+  color
+}
+```
+
+`CurrentlyPlaying.pattern` and `color` are therefore optional
+alternatives.
+
+Pattern objects observed locally contain fields such as:
+
+``` text
+name
+animation
+id
+referencePatternId? 
+backgroundColor
+brightness
+speed
+direction
+colors[]
+extraParameters
+version
+```
+
+### Power and brightness
+
+Local power and brightness writes are verified. Brightness preserves the
+running Pattern by reading current playback and posting the Pattern back
+with a modified brightness value.
+
+### Health / availability
+
+The Homey device polling layer tracks consecutive failures, marks a Hub2
+unavailable after repeated failures, and restores availability after
+successful communication resumes.
+
+House Front has demonstrated that the Hub2's local HTTP service can fail
+independently of cloud/mobile control. Toggling Gemstone **Allow Local
+Commands OFF → ON** can restore the local HTTP service. Homey can then
+recover without an app restart.
+
+Current poll interval: **60 seconds** during stability testing.
+
+`GemstoneClient` contains `fetchWithTimeout()` with a 5-second timeout,
+but active requests currently use bare `fetch()` while Hub behavior is
+being observed. Re-enable/finalize timeout behavior after the stability
+investigation.
 
 ## Cloud layer
 
@@ -80,17 +155,10 @@ getPatternFolders()
 getPatterns(folderId)
 ```
 
-Verified list responses use an outer `data` envelope; production methods unwrap it.
+Verified list responses use a `data` envelope.
 
-Device Groups do not currently have a proven dedicated endpoint. Group identity/membership is available through Homegroup `deviceGroupIds` and Device `deviceGroups` and will be normalized in the catalog layer.
-
-## Cloud models
-
-- Device LAN address is `device.hub.localIp`.
-- Folder `hidden` is optional because live records omit it.
-- Pattern cloud metadata and `patternData` are distinct.
-- Designs can independently contain `zonePatterns[]`, `staticColors[]`, or both.
-- Animation-specific extra parameters remain extensible.
+No dedicated Device Group endpoint has been proven. Groups are derived
+from Homegroup and Device relationship data.
 
 ## Catalog/cache layer
 
@@ -101,52 +169,142 @@ GemstoneCatalog
 │   ├── device
 │   ├── zones[]
 │   └── designs[]
+├── deviceGroups[]
 └── folders[]
     ├── folder
     └── patterns[]
 ```
 
-`GemstoneCatalogManager.load()` is the cloud-loading boundary. It currently loads sequentially for predictable diagnostics, then stores the completed catalog.
+`GemstoneCatalogManager.load()` / `refresh()` are the cloud-loading
+boundaries. A new catalog is assigned only after the build completes;
+refresh preserves the previous catalog on failure.
 
-Current cache API covers catalog state, Devices, Zones, Designs, Folders and Patterns. Cached accessors do not make network requests.
-
-Verified full-load snapshot:
+Current verified snapshot:
 
 ``` text
-homegroups: 1
-devices: 2
-zones: 2
-designs: 4
-folders: 31
-patterns: 9052
+homegroups:   1
+devices:      2
+deviceGroups: 1
+zones:        2
+designs:      4
+folders:      31
+patterns:     295
 ```
 
-Pattern access is intentionally folder-oriented. A global Pattern index should be added only if a concrete runtime/Flow requirement justifies it.
+### Device Groups
 
-### Next catalog addition: Device Groups
+`GemstoneCatalogDeviceGroup` is normalized from:
 
-Normalize a `GemstoneCatalogDeviceGroup` from Homegroup `deviceGroupIds[]`, Device `deviceGroups[groupId].name`, and matching Device IDs. Expected verified result: **Whole House → House Front + House Side**. No separate cloud request should be introduced unless a real endpoint is later established.
+-   Homegroup `deviceGroupIds[]`
+-   Device `deviceGroups[groupId]`
+-   matching Device IDs
 
-## State synchronization
+Verified result:
 
-Current poll interval: 10 seconds. Production behavior should tolerate isolated transient failures, use explicit request timeouts, avoid noisy single-failure logs, mark unavailable only after an appropriate threshold, and auto-recover.
+``` text
+Whole House
+├── House Front
+└── House Side
+```
 
-## Planned Flow architecture
+Cross-check warnings detect group IDs present on only one side of the
+Homegroup/Device relationship.
 
-`FlowManager` should consume `GemstoneCatalogManager`, not call cloud endpoints directly. With 9,052 live Patterns, Pattern selection should preserve Folder context or use an efficient searchable/indexed strategy rather than a flat permanent list.
+### Pattern loading
+
+Important observed behavior:
+
+``` text
+/folders/list
+    → 31 folders
+
+/folders/pattern/list?folderId=<valid folder>
+    → same 295 global Pattern records for every tested folderId
+```
+
+Therefore the catalog makes one Pattern request and groups the result
+locally:
+
+``` text
+295 global Pattern records
+        │
+        └── group by pattern.folderId
+                │
+                └── 31 catalog folders
+```
+
+Do not restore the old per-folder request loop; it produced 31 copies of
+the same global result.
+
+The API still receives one valid `folderId` because omission of the
+parameter has not been proven safe.
+
+## Cloud Pattern vs local Pattern
+
+A cloud Pattern record can contain:
+
+``` text
+GemstoneCloudPattern
+├── id
+├── folderId
+├── referencePatternId?
+├── referenceFolderId?
+├── patternData
+└── userModifiedPatternData?
+```
+
+For downloaded **Halloween Classic**, `patternData` and
+`userModifiedPatternData` differ. The Hub2's actual playback state
+matched `userModifiedPatternData` (`glitter`, values 0/60), not the
+original `patternData` (`wave`, values 20/70).
+
+However, the Hub2 local object is not necessarily a byte-for-byte copy
+of `userModifiedPatternData`: it contains local fields such as
+`direction` and `referencePatternId`, while extra-parameter descriptive
+names are omitted.
+
+Permanent Pattern playback should therefore use an explicit
+cloud-to-local conversion rather than POSTing the entire cloud wrapper
+or blindly spreading `userModifiedPatternData`.
+
+## Flow architecture
+
+`FlowManager` exists and is initialized after the catalog is loaded.
+
+Rules:
+
+-   FlowManager consumes `GemstoneCatalogManager`.
+-   FlowManager does not directly traverse cloud endpoints.
+-   User-facing choices should use friendly Gemstone names while storing
+    stable IDs.
+-   Duplicate folder names are real; do not assume folder names are
+    globally unique.
+-   Built-in Homey capability Flow cards should be reused where they
+    already cover functionality such as ordinary on/off.
+
+Planned Gemstone-specific actions include Pattern, Design, Zone and
+Device Group operations once their write semantics are proven.
 
 ## Security
 
-Never commit passwords/tokens. Temporary diagnostic credentials must be removed. Proper Homey credential/session storage and Cognito refresh behavior remain to be designed.
+Never commit passwords or tokens. Temporary hardcoded credentials are
+development-only and are removed before source control.
 
-## Known unknowns
+Production work remains:
 
-- Zone `lights` encoding
-- `folderId` vs `referenceFolderId`
-- complete authoritative animation schema/parameters
-- which Pattern/Design operations can be issued locally
-- Device Group playback/control semantics
-- catalog refresh/invalidation behavior
-- behavior when cloud metadata is unavailable
-- cloud token lifecycle
-- stable cloud-ID vs current IP-based Homey identity
+-   account/login UX
+-   secure credential persistence
+-   Cognito session/token refresh
+-   consistent cloud error handling
+
+## Known unknowns / open work
+
+-   Exact Zone `lights` encoding.
+-   Complete authoritative Animation vocabulary and parameter schemas.
+-   Local Pattern playback write conversion and verification.
+-   Local Design/Zone playback payloads.
+-   Device Group playback semantics.
+-   Exact catalog refresh trigger/UX.
+-   Stable cloud-ID vs current IP-based Homey identity.
+-   Final local timeout policy.
+-   Earlier delayed/error timestamp discrepancy.

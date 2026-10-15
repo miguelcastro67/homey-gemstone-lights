@@ -1,159 +1,136 @@
 # Gemstone Lights Homey App --- TODO
 
-**Updated:** 2026-10-06 (end-of-session)
+**Updated:** 2026-10-14 (end-of-session)
 
-## Product Direction
+## Product direction
 
-The Homey app will **not** create or edit Gemstone Zones, Designs, Patterns, or Animations. Those remain owned and configured by the Gemstone app. Homey retrieves/models them for Flow arguments, tokens/tags, conditions, and automation actions.
+Gemstone remains the editor for Zones, Designs, Patterns and physical
+setup. Homey retrieves/models those objects for automation, Flow
+arguments, tags/tokens and actions.
 
-## Completed / Major Milestones
+## Completed / major milestones
 
-### Local Hub2 Foundation
+### Local Hub2
 
-- [x] Verify Hub2 local HTTP API, settings and current playback.
-- [x] Implement local power and brightness control.
-- [x] Preserve running Pattern while adjusting brightness.
-- [x] Manual-IP pairing and local validation.
-- [x] Add `onoff` and `dim` capabilities.
-- [x] Add 10-second external-state polling.
-- [x] Pair/control House Front and House Side independently.
-- [x] Establish ICMP ping is not a valid health check.
-- [x] Capture direct solid-color state `{ onState, color }` with no Pattern.
-- [x] Make local Pattern optional and fix solid-color brightness crash.
-- [x] Confirm polling loop survives an isolated local HTTP 500.
+-   [x] Verify Hub2 local HTTP API.
+-   [x] Read Hub settings and current playback.
+-   [x] Implement local power and brightness.
+-   [x] Preserve running Pattern while adjusting brightness.
+-   [x] Manual-IP pairing and local validation.
+-   [x] Add `onoff` and `dim`.
+-   [x] Pair/control House Front and House Side independently.
+-   [x] Establish ICMP ping is not a valid health check.
+-   [x] Model direct-color playback with optional Pattern.
+-   [x] Prevent solid-color brightness polling crash.
+-   [x] Track repeated polling failures.
+-   [x] Mark unavailable after repeated failures.
+-   [x] Automatically restore availability after successful
+    communication.
+-   [x] Prove Allow Local Commands OFF → ON can restore a failed Hub2
+    local HTTP service without restarting Homey.
+-   [x] Reduce polling to 60 seconds for stability testing.
+-   [x] Capture local Pattern object shape.
+-   [x] Capture local Halloween Classic playback representation.
+-   [ ] Review current overnight stability run.
+-   [ ] Finalize `fetchWithTimeout()` usage and local error policy.
+-   [ ] Investigate delayed/error timestamp discrepancy.
 
-### Gemstone Cloud / Account Discovery
+### Cloud / catalog
 
-- [x] Cognito authentication on Homey Pro.
-- [x] Confirm login uses account email.
-- [x] Retrieve Homegroups and cloud Devices.
-- [x] Map cloud IDs to `device.hub.localIp`.
-- [x] Confirm Whole House relationship contains both controllers.
-- [x] Establish no dedicated Device Group endpoint was actually verified.
-- [x] Retrieve Zones, Designs, Pattern Folders and Patterns.
-- [x] Verify Design Zone/Pattern and static-color structures.
-- [x] Verify Pattern animation/colors/brightness/speed/direction/extra parameters where applicable.
-- [x] Verify list-response `data` envelopes.
+-   [x] Cognito authentication.
+-   [x] Typed Homegroups, Devices, Zones, Designs, Pattern Folders and
+    Patterns.
+-   [x] Verify `data` response envelope.
+-   [x] Normalize Device Groups from Homegroup/Device relationships.
+-   [x] Verify Whole House contains both controllers.
+-   [x] Add Device Group cache accessors.
+-   [x] Add catalog refresh with previous-catalog preservation on
+    failure.
+-   [x] App owns cloud client/catalog manager.
+-   [x] TestHarness uses cached catalog instead of duplicate cloud
+    traversal.
+-   [x] Determine `/folders/pattern/list?folderId=...` returns the same
+    global 295 records for tested folder IDs.
+-   [x] Correct catalog Pattern loading from 31 redundant calls to 1
+    call.
+-   [x] Group the 295 returned Patterns locally by `pattern.folderId`.
+-   [x] Verify corrected catalog: 31 folders / 295 Patterns.
+-   [x] Verify Downloaded Patterns contains 76 Patterns.
+-   [x] Find Halloween Classic in the cloud catalog.
+-   [x] Verify Halloween Classic uses `userModifiedPatternData` when
+    played through Gemstone.
+-   [ ] Determine whether `folderId` query parameter can safely be
+    omitted; do not assume.
+-   [ ] Define exact user-facing catalog refresh trigger.
+-   [ ] Add consistent cloud error handling.
+-   [ ] Implement Cognito token/session lifecycle and refresh.
 
-### Production Cloud Models
+### FlowManager
 
-- [x] Expand `GemstoneCloudModels.ts` from live payloads.
-- [x] Homegroup model.
-- [x] Cloud Device + nested Hub/Network metadata.
-- [x] Device Group reference model.
-- [x] Zone model.
-- [x] Pattern Folder model; `hidden` optional based on live evidence.
-- [x] Pattern outer record and Pattern data models.
-- [x] Design / ZonePattern / StaticColor models.
-- [x] Animation extra-parameter models.
-- [x] Common API response envelope model.
+-   [x] Create `FlowManager`.
+-   [x] Initialize it after catalog load.
+-   [x] Ensure it consumes `GemstoneCatalogManager`.
+-   [ ] Implement first Gemstone-specific Flow cards after Pattern write
+    is proven.
+-   [ ] Use built-in Homey on/off cards instead of redundant custom
+    power cards.
+-   [ ] Dynamic Pattern/Folder selection.
+-   [ ] Device Group actions where supported.
+-   [ ] Zone/Design actions where supported.
+-   [ ] Current playback tags/tokens where useful.
 
-### Production Cloud Client
+## NEXT --- Pattern playback write
 
-- [x] Update `IGemstoneCloudClient`.
-- [x] Typed `getHomegroups()`.
-- [x] Typed `getDevices(homegroupId)`.
-- [x] Typed `getZones(deviceId)`.
-- [x] Typed `getDesigns(deviceId)`.
-- [x] Typed `getPatternFolders()`.
-- [x] Typed `getPatterns(folderId)`.
-- [x] Unwrap verified `data` envelopes.
-- [x] Remove unsupported/invented `getDeviceGroups()` method.
-- [x] Clean TestHarness to typed read-only diagnostics.
-- [ ] Decide whether legacy raw diagnostic methods should remain or be removed later.
-- [ ] Decide direct cloud color playback vs preferred local equivalent.
-- [ ] Add consistent cloud error handling.
-- [ ] Implement Cognito token/session lifecycle and refresh.
+-   [ ] Add a temporary/local `playPattern()` path to `GemstoneClient`.
+-   [ ] Define an explicit cloud-Pattern → local-Hub2 Pattern
+    conversion.
+-   [ ] Prefer `userModifiedPatternData` where applicable based on
+    observed Gemstone behavior.
+-   [ ] Supply required local fields such as `direction` /
+    `referencePatternId` appropriately.
+-   [ ] Normalize `extraParameters` to the Hub2 value-only form where
+    required.
+-   [ ] Test **Halloween Classic on House Front only**.
+-   [ ] Verify physical playback and subsequent `currentlyPlaying`.
+-   [ ] Remove temporary test scaffolding.
+-   [ ] Promote proven logic into production Pattern playback
+    architecture.
 
-### Catalog / Cache
+## Authentication / security
 
-- [x] Add `GemstoneCatalogModels.ts`.
-- [x] Add `GemstoneCatalogManager.ts`.
-- [x] Implement full `load()` traversal and cache.
-- [x] Add `getCatalog()` / `isLoaded()`.
-- [x] Add cached Device/Zone/Design accessors.
-- [x] Add cached Folder/Pattern accessors.
-- [x] Verify complete live catalog load.
-- [x] Verify snapshot: 1 Homegroup, 2 Devices, 2 Zones, 4 Designs, 31 Folders, 9,052 Patterns.
-- [x] Keep initial traversal sequential for predictable diagnostics.
-- [ ] **NEXT: Add normalized `GemstoneCatalogDeviceGroup` model.**
-- [ ] **NEXT: Build Device Groups from Homegroup `deviceGroupIds` + Device `deviceGroups`.**
-- [ ] **NEXT: Verify normalized Whole House contains House Front and House Side.**
-- [ ] Add Device Group cache accessors.
-- [ ] Define catalog refresh/invalidation behavior.
-- [ ] Decide behavior when cloud metadata is temporarily unavailable.
-- [ ] Determine whether/where lookup Maps or global-ID indexes are justified.
-- [ ] Consider parallelizing independent catalog requests after correctness is established.
-- [ ] Reconcile IP changes against stable cloud IDs.
+-   [x] Remove temporary credentials before the overnight/source-control
+    checkpoint.
+-   [ ] Build Homey account/login setup UX.
+-   [ ] Securely persist credentials/session data.
+-   [ ] Ensure passwords/tokens can never be committed.
 
-### Authentication / Security
+## Device identity / pairing
 
-- [ ] Remove all temporary hardcoded Gemstone credentials.
-- [ ] Design Homey account/login settings experience.
-- [ ] Implement secure credential/session storage.
-- [ ] Ensure passwords/tokens can never be committed.
+-   [ ] Decide whether Homey `data.id` should migrate from IP to stable
+    Gemstone cloud ID.
+-   [ ] Preserve LAN IP as connection metadata/settings.
+-   [ ] Consider cloud-assisted pairing.
+-   [ ] Preserve manual-IP pairing as fallback.
+-   [ ] Consider automatic LAN discovery later.
 
-### Local Client / Robustness
+## Open protocol/domain questions
 
-- [x] Determine local direct-color `currentlyPlaying` representation.
-- [x] Fix solid-color `pattern.brightness` crash.
-- [x] Verify isolated local HTTP 500 does not terminate polling.
-- [ ] Add explicit local request timeout / `AbortController` handling.
-- [ ] Track consecutive polling failures.
-- [ ] Avoid noisy logs for isolated transient failures.
-- [ ] Mark unavailable only after an appropriate failure threshold.
-- [ ] Automatically restore availability after successful communication.
-- [ ] Investigate local Pattern selection/playback payloads.
-- [ ] Investigate local Design/Zone playback payloads.
-- [ ] Investigate direct local color playback if useful.
+-   [ ] Exact Zone `lights` encoding.
+-   [ ] Full `folderId` / `referenceFolderId` / `referencePatternId`
+    semantics.
+-   [ ] Complete Animation vocabulary and parameter schemas.
+-   [ ] Local Design/Zone playback payloads.
+-   [ ] Device Group playback/control semantics.
+-   [ ] Whether runtime overrides alter saved objects or current
+    playback only.
+-   [ ] Saved palette/favorite-color concept, if any.
 
-### Device Identity / Pairing
+## Release/documentation
 
-- [ ] Decide whether Homey `data.id` should migrate from IP to stable Gemstone cloud ID.
-- [ ] Preserve LAN IP as connection metadata/settings.
-- [ ] Consider cloud-assisted pairing after account authentication.
-- [ ] Preserve manual-IP pairing as fallback.
-- [ ] Consider automatic LAN discovery later.
-
-## FlowManager / Potential Flow Cards
-
-- [ ] Build `FlowManager` against `GemstoneCatalogManager`, not direct cloud calls.
-- [ ] Populate Device Group choices from normalized catalog groups.
-- [ ] Populate Zone choices based on selected Device.
-- [ ] Populate Pattern Folder choices from cached catalog.
-- [ ] Populate Pattern choices from selected Folder rather than a flat 9,052-item permanent list.
-- [ ] Populate Design choices based on selected Device.
-- [ ] Ensure users never enter Gemstone UUIDs manually.
-- [ ] Device power/brightness/color/Pattern actions.
-- [ ] Device Group power/brightness/color/Pattern actions where supported.
-- [ ] Zone → Pattern / Color actions where supported.
-- [ ] Play saved Design.
-- [ ] Runtime speed/direction/brightness actions where supported.
-- [ ] WHEN/AND cards for power, brightness, Pattern, Design, speed, direction, availability as detectable.
-
-## Metadata, Tags and Flow Tokens
-
-- [ ] Design tag/token strategy.
-- [ ] Expose useful Device, Group, Zone, Pattern and Design metadata.
-- [ ] Expose current Pattern/playback information.
-- [ ] Avoid flooding Homey with permanent tags for the 9,052-Pattern catalog.
-
-## Open Protocol / Domain Questions
-
-- [ ] Exact Zone `lights` encoding.
-- [ ] `folderId` vs `referenceFolderId` relationship.
-- [ ] Whether Pattern folders nest.
-- [ ] Whether Patterns can exist outside folders.
-- [ ] Complete authoritative Animation vocabulary and parameter schemas.
-- [ ] Saved palette/favorite-color concept, if any.
-- [ ] Device Group playback/control semantics.
-- [ ] Which Pattern/Design operations can be local-only.
-- [ ] Whether runtime overrides modify saved Designs or only current playback.
-
-## User Documentation / Release Work
-
-- [ ] Expand `USER_DOCS.md` as actual Homey UI/Flow cards are implemented.
-- [ ] Add pairing/account setup instructions.
-- [ ] Add screenshots when UI stabilizes.
-- [ ] Add final Flow-card reference and troubleshooting.
-- [ ] Add README/App Store documentation and certification assets.
+-   [ ] Expand User Guide as real Flow cards/UI are implemented.
+-   [ ] Add account/pairing instructions.
+-   [ ] Add screenshots when UI stabilizes.
+-   [ ] Add Flow-card reference/troubleshooting.
+-   [ ] Resolve publish-level driver image validation requirements.
+-   [ ] Update Homey CLI later, outside active debugging.
+-   [ ] Final README/App Store/certification work.

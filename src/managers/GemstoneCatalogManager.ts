@@ -233,8 +233,31 @@ export class GemstoneCatalogManager {
 
     console.log(`Loaded ${folders.length} pattern folder(s)`);
     
-    const catalogFolders: GemstoneCatalogFolder[] = [];
+    const allPatterns = folders.length > 0
+      ? await this.cloudClient.getPatterns(folders[0].folderId)
+      : [];
 
+    console.log(`Loaded ${allPatterns.length} pattern(s)`);
+
+    const catalogFolders: GemstoneCatalogFolder[] = folders.map(
+      (folder) => {
+        const patterns = allPatterns.filter(
+          (pattern) => pattern.folderId === folder.folderId,
+        );
+
+        console.log(
+          `Loaded pattern folder: ${folder.name} `
+          + `(${patterns.length} pattern(s))`,
+        );
+
+        return {
+          folder,
+          patterns,
+        };
+      },
+    );
+
+    /*
     for (const folder of folders) {
       console.log(`Loading pattern folder: ${folder.name}`);
 
@@ -247,6 +270,7 @@ export class GemstoneCatalogManager {
         patterns,
       });
     }
+    */
 
     const newCatalog: GemstoneCatalog = {
       homegroups,
